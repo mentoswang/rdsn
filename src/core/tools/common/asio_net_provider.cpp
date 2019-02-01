@@ -59,6 +59,17 @@ error_code asio_network_provider::start(rpc_channel channel, int port, bool clie
                                          "io_service_worker_count",
                                          1,
                                          "thread number for io service (timer and boost network)");
+    _connection_threshold_total =
+        (uint32_t)dsn_config_get_value_uint64("network",
+                                              "connection_threshold_tatal",
+                                              10000,
+                                              "max total connection count to each server");
+    _connection_threshold_endpoint =
+        (uint32_t)dsn_config_get_value_uint64("network",
+                                              "connection_threshold_endpoint",
+                                              500,
+                                              "max connection count to each server per endpoint");
+
     for (int i = 0; i < io_service_worker_count; i++) {
         _workers.push_back(std::make_shared<std::thread>([this, i]() {
             task::set_tls_dsn_context(node(), nullptr);

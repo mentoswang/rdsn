@@ -210,12 +210,50 @@ void rpc_session::start_read_next(int read_next)
             }));
             delay_task->enqueue(std::chrono::milliseconds(delay_ms));
         } else {
-            do_read(read_next);
+            connection_oriented_network::connect_threshold_type limit =
+                _net.limit_connection(this->remote_address());
+            if (limit > connection_oriented_network::connect_threshold_type::
+                            CONNETCION_THRESHOLD_NONE &&
+                limit < connection_oriented_network::connect_threshold_type::
+                            CONNECTION_THRESHOLD_INVALID) {
+                dwarn("wss: limit rpc connection from %s to %s due to %s",
+                      this->remote_address().to_string(),
+                      _net.address().to_string(),
+                      limit == connection_oriented_network::connect_threshold_type::
+                                   CONNECTION_THRESHOLD_TOTAL
+                          ? "hitting server total connection threshold"
+                          : "hitting server connection threshold per endpoint");
+                do_limit_read(read_next);
+            } else {
+                do_read(read_next);
+            }
         }
     } else {
         do_read(read_next);
     }
 }
+
+// void rpc_session::start_limit_read_next(int read_next)
+//{
+//    // server only
+//    if (!is_client()) {
+//        int delay_ms = _delay_server_receive_ms.exchange(0);
+//
+//        // delayed read
+//        if (delay_ms > 0) {
+//            this->add_ref();
+//            dsn::task_ptr delay_task(new raw_task(LPC_DELAY_RPC_REQUEST_RATE, [this]() {
+//                start_limit_read_next();
+//                this->release_ref();
+//            }));
+//            delay_task->enqueue(std::chrono::milliseconds(delay_ms));
+//        } else {
+//            do_limit_read(read_next);
+//        }
+//    } else {
+//        do_limit_read(read_next);
+//    }
+//}
 
 int rpc_session::prepare_parser()
 {
@@ -502,6 +540,8 @@ uint32_t network::get_local_ipv4()
 connection_oriented_network::connection_oriented_network(rpc_engine *srv, network *inner_provider)
     : network(srv, inner_provider)
 {
+    _connection_threshold_total = 10000;
+    _connection_threshold_endpoint = 500;
 }
 
 void connection_oriented_network::inject_drop_message(message_ex *msg, bool is_send)
@@ -580,7 +620,12 @@ void connection_oriented_network::on_server_session_accepted(rpc_session_ptr &s)
         utils::auto_write_lock l(_servers_lock);
         auto pr = _servers.insert(server_sessions::value_type(s->remote_address(), s));
         if (pr.second) {
-            // nothing to do
+            auto it = _endpoints.find(s->remote_address().ip());
+            if (it != _endpoints.end()) {
+                _endpoints.insert(endpoint_sessions::value_type(it->first, ++it->second));
+            } else {
+                _endpoints.insert(endpoint_sessions::value_type(s->remote_address().ip(), 1));
+            }
         } else {
             pr.first->second = s;
             dwarn("server session already exists, remote_client = %s, preempted",
@@ -606,6 +651,15 @@ void connection_oriented_network::on_server_session_disconnected(rpc_session_ptr
             r = true;
         }
         scount = (int)_servers.size();
+
+        auto it2 = _endpoints.find(s->remote_address().ip());
+        if (it2 != _endpoints.end()) {
+            if (it2->second > 1) {
+                _endpoints.insert(endpoint_sessions::value_type(it2->first, --it2->second));
+            } else {
+                _endpoints.erase(it2);
+            }
+        }
     }
 
     if (r) {
@@ -613,6 +667,21 @@ void connection_oriented_network::on_server_session_disconnected(rpc_session_ptr
                s->remote_address().to_string(),
                scount);
     }
+}
+
+connection_oriented_network::connect_threshold_type
+connection_oriented_network::limit_connection(::dsn::rpc_address ep)
+{
+    utils::auto_read_lock l(_servers_lock);
+
+    if (_servers.size() >= _connection_threshold_total)
+        return connect_threshold_type::CONNECTION_THRESHOLD_TOTAL;
+
+    auto it = _endpoints.find(ep.ip());
+    if (it != _endpoints.end() && it->second >= _connection_threshold_endpoint)
+        return connect_threshold_type::CONNECTION_THRESHOLD_ENDPOINT;
+
+    return connect_threshold_type::CONNETCION_THRESHOLD_NONE;
 }
 
 rpc_session_ptr connection_oriented_network::get_client_session(::dsn::rpc_address ep)
