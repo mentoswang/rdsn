@@ -240,6 +240,9 @@ void asio_rpc_session::close_on_failure()
     rpc_session_ptr sp = this;
     _net.on_server_session_disconnected(sp);
     safe_close();
+    dwarn("wss: close connection from %s to %s",
+          _net.address().to_string(),
+          remote_address().to_string());
 }
 
 bool asio_rpc_session::on_message_limit_read(message_ex *msg)
@@ -247,6 +250,10 @@ bool asio_rpc_session::on_message_limit_read(message_ex *msg)
     if (is_client_request(msg)) {
         reject_message(msg);
         safe_close();
+        dwarn("wss: reject %s request from %s to %s",
+              msg->rpc_code().to_string(),
+              _net.address().to_string(),
+              msg->to_address.to_string());
         return true;
     }
 
@@ -256,17 +263,7 @@ bool asio_rpc_session::on_message_limit_read(message_ex *msg)
     return false;
 }
 
-bool asio_rpc_session::is_client_request(message_ex *msg)
-{
-    ddebug("wss: rpc name = %s, rpc code = %d:%d",
-           msg->header->rpc_name,
-           msg->header->rpc_code.local_code,
-           msg->header->rpc_code.local_hash);
-    if (msg->header->context.u.is_request) {
-        return true;
-    }
-    return false;
-}
+bool asio_rpc_session::is_client_request(message_ex *msg) { return msg->is_client_request(); }
 
 void asio_rpc_session::reject_message(message_ex *msg)
 {

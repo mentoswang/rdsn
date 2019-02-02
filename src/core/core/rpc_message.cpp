@@ -120,6 +120,30 @@ task_code message_ex::rpc_code()
     return local_rpc_code;
 }
 
+bool message_ex::is_client_request()
+{
+    if (!header->context.u.is_request)
+        return false;
+
+    std::string rc = rpc_code().to_string();
+    if (rc == "TASK_CODE_INVALID" || rc == "RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX" ||
+        rc == "RPC_RRDB_RRDB_PUT" || rc == "RPC_RRDB_RRDB_MULTI_PUT" ||
+        rc == "RPC_RRDB_RRDB_REMOVE" || rc == " RPC_RRDB_RRDB_MULTI_REMOVE" ||
+        rc == "RPC_RRDB_RRDB_INCR" || rc == " RPC_RRDB_RRDB_CHECK_AND_SET" ||
+        rc == "RPC_RRDB_RRDB_CHECK_AND_MUTATE" || rc == " RPC_RRDB_RRDB_GET" ||
+        rc == "RPC_RRDB_RRDB_MULTI_GET" || rc == " RPC_RRDB_RRDB_SORTKEY_COUNT" ||
+        rc == " RPC_RRDB_RRDB_TTL" || rc == " RPC_RRDB_RRDB_GET_SCANNER" ||
+        rc == " RPC_RRDB_RRDB_SCAN" || rc == " RPC_RRDB_RRDB_CLEAR_SCANNER") {
+        ddebug("wss: rpc name = %s, rpc code = %s, client request", header->rpc_name, rc.c_str());
+        return true;
+    } else {
+        ddebug(
+
+            "wss: rpc name = %s, rpc code = %s, non-client request", header->rpc_name, rc.c_str());
+        return false;
+    }
+}
+
 message_ex *message_ex::create_receive_message(const blob &data)
 {
     message_ex *msg = new message_ex();
