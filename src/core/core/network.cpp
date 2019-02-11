@@ -623,8 +623,14 @@ void connection_oriented_network::on_server_session_accepted(rpc_session_ptr &s)
             auto it = _endpoints.find(s->remote_address().ip());
             if (it != _endpoints.end()) {
                 _endpoints.insert(endpoint_sessions::value_type(it->first, ++it->second));
+                ddebug("wss: endpoint session increased, remote_client = %s, current_count = %d",
+                       s->remote_address().to_string(),
+                       _endpoints.find(s->remote_address().ip())->second);
             } else {
                 _endpoints.insert(endpoint_sessions::value_type(s->remote_address().ip(), 1));
+                ddebug("wss: endpoint session inserted, remote_client = %s, current_count = %d",
+                       s->remote_address().to_string(),
+                       _endpoints.find(s->remote_address().ip())->second);
             }
         } else {
             pr.first->second = s;
@@ -656,8 +662,13 @@ void connection_oriented_network::on_server_session_disconnected(rpc_session_ptr
         if (it2 != _endpoints.end()) {
             if (it2->second > 1) {
                 _endpoints.insert(endpoint_sessions::value_type(it2->first, --it2->second));
+                ddebug("wss: endpoint session decreased, remote_client = %s, current_count = %d",
+                       s->remote_address().to_string(),
+                       _endpoints.find(s->remote_address().ip())->second);
             } else {
                 _endpoints.erase(it2);
+                ddebug("wss: endpoint session erased, remote_client = %s",
+                       s->remote_address().to_string());
             }
         }
     }
@@ -674,12 +685,22 @@ connection_oriented_network::limit_connection(::dsn::rpc_address ep)
 {
     utils::auto_read_lock l(_servers_lock);
 
-    if (_servers.size() >= _connection_threshold_total)
+    if (_servers.size() >= _connection_threshold_total) {
+        //        dwarn("wss: limit rpc connection from %s to %s due to %s",
+        //              ep.to_string(),
+        //              address().to_string(),
+        //              "hitting server total connection threshold");
         return connect_threshold_type::CONNECTION_THRESHOLD_TOTAL;
+    }
 
     auto it = _endpoints.find(ep.ip());
-    if (it != _endpoints.end() && it->second >= _connection_threshold_endpoint)
+    if (it != _endpoints.end() && it->second >= _connection_threshold_endpoint) {
+        //        dwarn("wss: limit rpc connection from %s to %s due to %s",
+        //              ep.to_string(),
+        //              address().to_string(),
+        //              "hitting server connection threshold per endpoint");
         return connect_threshold_type::CONNECTION_THRESHOLD_ENDPOINT;
+    }
 
     return connect_threshold_type::CONNETCION_THRESHOLD_NONE;
 }

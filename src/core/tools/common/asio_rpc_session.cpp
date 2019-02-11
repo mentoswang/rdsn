@@ -156,8 +156,8 @@ void asio_rpc_session::do_limit_read(int read_next)
                            _remote_addr.to_string(),
                            ec.message().c_str());
                 }
-                // on_failure();
-                close_on_failure();
+                on_failure();
+                // close_on_failure();
             } else {
                 _reader.mark_read(length);
 
@@ -181,7 +181,8 @@ void asio_rpc_session::do_limit_read(int read_next)
 
                 if (read_next == -1) {
                     derror("asio read from %s failed", _remote_addr.to_string());
-                    close_on_failure();
+                    on_failure();
+                    // close_on_failure();
                 } else if (!closed) {
                     start_read_next(read_next);
                 }
@@ -249,6 +250,8 @@ bool asio_rpc_session::on_message_limit_read(message_ex *msg)
 {
     if (is_client_request(msg)) {
         reject_message(msg);
+        rpc_session_ptr sp = this;
+        _net.on_server_session_disconnected(sp);
         safe_close();
         dwarn("wss: reject %s request from %s to %s",
               msg->rpc_code().to_string(),

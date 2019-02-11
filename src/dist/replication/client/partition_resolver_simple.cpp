@@ -220,9 +220,9 @@ void partition_resolver_simple::call(request_context_ptr &&request, bool from_me
 }
 
 /*send rpc*/
-DEFINE_TASK_CODE_RPC(RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX,
-                     TASK_PRIORITY_COMMON,
-                     THREAD_POOL_DEFAULT)
+DEFINE_CLIENT_TASK_CODE_RPC(RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX,
+                            TASK_PRIORITY_COMMON,
+                            THREAD_POOL_DEFAULT)
 
 task_ptr partition_resolver_simple::query_config(int partition_index)
 {

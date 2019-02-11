@@ -61,7 +61,7 @@ error_code asio_network_provider::start(rpc_channel channel, int port, bool clie
                                          "thread number for io service (timer and boost network)");
     _connection_threshold_total =
         (uint32_t)dsn_config_get_value_uint64("network",
-                                              "connection_threshold_tatal",
+                                              "connection_threshold_total",
                                               10000,
                                               "max total connection count to each server");
     _connection_threshold_endpoint =

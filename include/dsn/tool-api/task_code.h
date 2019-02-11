@@ -92,7 +92,8 @@ public:
     task_code(const char *name,
               dsn_task_type_t tt,
               dsn_task_priority_t pri,
-              dsn::threadpool_code pool);
+              dsn::threadpool_code pool,
+              bool is_client_request = false);
 
     task_code(const char *name,
               dsn_task_type_t tt,
@@ -100,7 +101,8 @@ public:
               dsn::threadpool_code pool,
               bool is_storage_write,
               bool allow_batch,
-              bool is_idempotent);
+              bool is_idempotent,
+              bool is_client_request = false);
 
     const char *to_string() const;
 
@@ -133,14 +135,16 @@ private:
 #define DEFINE_NAMED_TASK_CODE_AIO(x, name, pri, pool)                                             \
     __selectany const ::dsn::task_code x(#name, TASK_TYPE_AIO, pri, pool);
 
-#define DEFINE_NAMED_TASK_CODE_RPC(x, name, pri, pool)                                             \
-    __selectany const ::dsn::task_code x(#name, TASK_TYPE_RPC_REQUEST, pri, pool);                 \
-    __selectany const ::dsn::task_code x##_ACK(#name "_ACK", TASK_TYPE_RPC_RESPONSE, pri, pool);
+#define DEFINE_NAMED_TASK_CODE_RPC(x, name, pri, pool, client)                                     \
+    __selectany const ::dsn::task_code x(#name, TASK_TYPE_RPC_REQUEST, pri, pool, client);         \
+    __selectany const ::dsn::task_code x##_ACK(#name "_ACK",                                       \
+                                               TASK_TYPE_RPC_RESPONSE, pri, pool, false);
 
 /*! define a new task code with TASK_TYPE_COMPUTATION */
 #define DEFINE_TASK_CODE(x, pri, pool) DEFINE_NAMED_TASK_CODE(x, x, pri, pool)
 #define DEFINE_TASK_CODE_AIO(x, pri, pool) DEFINE_NAMED_TASK_CODE_AIO(x, x, pri, pool)
-#define DEFINE_TASK_CODE_RPC(x, pri, pool) DEFINE_NAMED_TASK_CODE_RPC(x, x, pri, pool)
+#define DEFINE_TASK_CODE_RPC(x, pri, pool) DEFINE_NAMED_TASK_CODE_RPC(x, x, pri, pool, false)
+#define DEFINE_CLIENT_TASK_CODE_RPC(x, pri, pool) DEFINE_NAMED_TASK_CODE_RPC(x, x, pri, pool, true)
 
 // define a rpc code for storage engine
 //
@@ -161,16 +165,24 @@ private:
 // Notice we dispatch storage rpc's response to THREAD_POOL_DEFAULT,
 // the reason is that the storage rpc's response mainly runs at client side, which is not
 // necessary to start so many threadpools
-#define DEFINE_STORAGE_RPC_CODE(x, pri, pool, is_write, allow_batch, is_idempotent)                \
-    __selectany const ::dsn::task_code x(                                                          \
-        #x, TASK_TYPE_RPC_REQUEST, pri, pool, is_write, allow_batch, is_idempotent);               \
-    __selectany const ::dsn::task_code x##_ACK(#x "_ACK",                                          \
-                                               TASK_TYPE_RPC_RESPONSE,                             \
-                                               pri,                                                \
-                                               THREAD_POOL_DEFAULT,                                \
-                                               is_write,                                           \
-                                               allow_batch,                                        \
-                                               is_idempotent);
+#define DEFINE_STORAGE_RPC_CODE(x,                                                                 \
+     pri, pool, is_write, allow_batch, is_idempotent, is_client_request)                           \
+   __selectany const ::dsn::task_code x(#x,                                                        \
+                                       TASK_TYPE_RPC_REQUEST,                                      \
+                                       pri,                                                        \
+                                       pool,                                                       \
+                                       is_write,                                                   \
+                                       allow_batch,                                                \
+                                       is_idempotent,                                              \
+                                       is_client_request);                                         \
+  __selectany const ::dsn::task_code x##_ACK(#x "_ACK",                                            \
+                                             TASK_TYPE_RPC_RESPONSE,                               \
+                                             pri,                                                  \
+                                             THREAD_POOL_DEFAULT,                                  \
+                                             is_write,                                             \
+                                             allow_batch,                                          \
+                                             is_idempotent,                                        \
+                                             false);
 
 #define ALLOW_BATCH true
 #define NOT_ALLOW_BATCH false
