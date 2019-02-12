@@ -156,8 +156,8 @@ void asio_rpc_session::do_limit_read(int read_next)
                            _remote_addr.to_string(),
                            ec.message().c_str());
                 }
-                on_failure();
-                // close_on_failure();
+                // on_failure();
+                close_on_failure();
             } else {
                 _reader.mark_read(length);
 
@@ -171,7 +171,6 @@ void asio_rpc_session::do_limit_read(int read_next)
 
                 if (_parser) {
                     message_ex *msg = _parser->get_message_on_receive(&_reader, read_next);
-                    // TODO: wss, check rpc code to determine reject or pass
                     while (msg != nullptr && !closed) {
                         closed = this->on_message_limit_read(msg);
                         if (!closed)
@@ -181,8 +180,8 @@ void asio_rpc_session::do_limit_read(int read_next)
 
                 if (read_next == -1) {
                     derror("asio read from %s failed", _remote_addr.to_string());
-                    on_failure();
-                    // close_on_failure();
+                    // on_failure();
+                    close_on_failure();
                 } else if (!closed) {
                     start_read_next(read_next);
                 }
@@ -248,15 +247,18 @@ void asio_rpc_session::close_on_failure()
 
 bool asio_rpc_session::on_message_limit_read(message_ex *msg)
 {
+    // TODO(wss): option 2, check server white list, get wl from configuration when network start
+    // if(!_net.from_wl_server(this->remote_address())) {
+
     if (is_client_request(msg)) {
-        reject_message(msg);
-        rpc_session_ptr sp = this;
-        _net.on_server_session_disconnected(sp);
-        safe_close();
         dwarn("wss: reject %s request from %s to %s",
               msg->rpc_code().to_string(),
               _net.address().to_string(),
               msg->to_address.to_string());
+        reject_message(msg);
+        rpc_session_ptr sp = this;
+        _net.on_server_session_disconnected(sp);
+        safe_close();
         return true;
     }
 

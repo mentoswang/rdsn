@@ -210,50 +210,31 @@ void rpc_session::start_read_next(int read_next)
             }));
             delay_task->enqueue(std::chrono::milliseconds(delay_ms));
         } else {
-            connection_oriented_network::connect_threshold_type limit =
-                _net.limit_connection(this->remote_address());
-            if (limit > connection_oriented_network::connect_threshold_type::
-                            CONNETCION_THRESHOLD_NONE &&
-                limit < connection_oriented_network::connect_threshold_type::
-                            CONNECTION_THRESHOLD_INVALID) {
-                dwarn("wss: limit rpc connection from %s to %s due to %s",
-                      this->remote_address().to_string(),
-                      _net.address().to_string(),
-                      limit == connection_oriented_network::connect_threshold_type::
-                                   CONNECTION_THRESHOLD_TOTAL
-                          ? "hitting server total connection threshold"
-                          : "hitting server connection threshold per endpoint");
-                do_limit_read(read_next);
-            } else {
-                do_read(read_next);
-            }
+            do_read(read_next);
         }
     } else {
         do_read(read_next);
     }
 }
 
-// void rpc_session::start_limit_read_next(int read_next)
-//{
-//    // server only
-//    if (!is_client()) {
-//        int delay_ms = _delay_server_receive_ms.exchange(0);
-//
-//        // delayed read
-//        if (delay_ms > 0) {
-//            this->add_ref();
-//            dsn::task_ptr delay_task(new raw_task(LPC_DELAY_RPC_REQUEST_RATE, [this]() {
-//                start_limit_read_next();
-//                this->release_ref();
-//            }));
-//            delay_task->enqueue(std::chrono::milliseconds(delay_ms));
-//        } else {
-//            do_limit_read(read_next);
-//        }
-//    } else {
-//        do_limit_read(read_next);
-//    }
-//}
+void rpc_session::start_limit_read_next(int read_next)
+{
+    // server only
+    dassert(!is_client(), "wss: should only be server to limit read");
+
+    int delay_ms = _delay_server_receive_ms.exchange(0);
+    // delayed read
+    if (delay_ms > 0) {
+        this->add_ref();
+        dsn::task_ptr delay_task(new raw_task(LPC_DELAY_RPC_REQUEST_RATE, [this]() {
+            start_limit_read_next();
+            this->release_ref();
+        }));
+        delay_task->enqueue(std::chrono::milliseconds(delay_ms));
+    } else {
+        do_limit_read(read_next);
+    }
+}
 
 int rpc_session::prepare_parser()
 {
@@ -540,8 +521,8 @@ uint32_t network::get_local_ipv4()
 connection_oriented_network::connection_oriented_network(rpc_engine *srv, network *inner_provider)
     : network(srv, inner_provider)
 {
-    _connection_threshold_total = 10000;
-    _connection_threshold_endpoint = 500;
+    _connection_threshold_total = 0;
+    _connection_threshold_endpoint = 0;
 }
 
 void connection_oriented_network::inject_drop_message(message_ex *msg, bool is_send)
@@ -685,22 +666,12 @@ connection_oriented_network::limit_connection(::dsn::rpc_address ep)
 {
     utils::auto_read_lock l(_servers_lock);
 
-    if (_servers.size() >= _connection_threshold_total) {
-        //        dwarn("wss: limit rpc connection from %s to %s due to %s",
-        //              ep.to_string(),
-        //              address().to_string(),
-        //              "hitting server total connection threshold");
+    if (_servers.size() >= _connection_threshold_total)
         return connect_threshold_type::CONNECTION_THRESHOLD_TOTAL;
-    }
 
     auto it = _endpoints.find(ep.ip());
-    if (it != _endpoints.end() && it->second >= _connection_threshold_endpoint) {
-        //        dwarn("wss: limit rpc connection from %s to %s due to %s",
-        //              ep.to_string(),
-        //              address().to_string(),
-        //              "hitting server connection threshold per endpoint");
+    if (it != _endpoints.end() && it->second >= _connection_threshold_endpoint)
         return connect_threshold_type::CONNECTION_THRESHOLD_ENDPOINT;
-    }
 
     return connect_threshold_type::CONNETCION_THRESHOLD_NONE;
 }

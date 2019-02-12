@@ -59,15 +59,12 @@ error_code asio_network_provider::start(rpc_channel channel, int port, bool clie
                                          "io_service_worker_count",
                                          1,
                                          "thread number for io service (timer and boost network)");
-    _connection_threshold_total =
-        (uint32_t)dsn_config_get_value_uint64("network",
-                                              "connection_threshold_total",
-                                              10000,
-                                              "max total connection count to each server");
+    _connection_threshold_total = (uint32_t)dsn_config_get_value_uint64(
+        "network", "connection_threshold_total", 0, "max total connection count to each server");
     _connection_threshold_endpoint =
         (uint32_t)dsn_config_get_value_uint64("network",
                                               "connection_threshold_endpoint",
-                                              500,
+                                              0,
                                               "max connection count to each server per endpoint");
 
     for (int i = 0; i < io_service_worker_count; i++) {
@@ -161,8 +158,25 @@ void asio_network_provider::do_accept()
                                          false);
                 on_server_session_accepted(s);
 
-                // we should start read immediately after the rpc session is completely created.
-                s->start_read_next();
+                // when server connection threshold is hit, check if we should reject the request,
+                // otherwise start read immediately after the rpc session is completely created.
+                connection_oriented_network::connect_threshold_type limit =
+                    limit_connection(s->remote_address());
+                if (limit > connection_oriented_network::connect_threshold_type::
+                                CONNETCION_THRESHOLD_NONE &&
+                    limit < connection_oriented_network::connect_threshold_type::
+                                CONNECTION_THRESHOLD_INVALID) {
+                    dwarn("wss: limit rpc connection from %s to %s due to %s",
+                          s->remote_address().to_string(),
+                          address().to_string(),
+                          limit == connection_oriented_network::connect_threshold_type::
+                                       CONNECTION_THRESHOLD_TOTAL
+                              ? "hitting server total connection threshold"
+                              : "hitting server connection threshold per endpoint");
+                    s->start_limit_read_next();
+                } else {
+                    s->start_read_next();
+                }
             }
         }
 

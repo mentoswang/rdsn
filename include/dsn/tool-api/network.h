@@ -249,7 +249,7 @@ public:
     /// for subclass to implement receiving message
     ///
     void start_read_next(int read_next = 256);
-    // void start_limit_read_next(int read_next = 256);
+    void start_limit_read_next(int read_next = 256);
     // should be called in do_read() before using _parser when it is nullptr.
     // returns:
     //   -1 : prepare failed, maybe because of invalid message header type

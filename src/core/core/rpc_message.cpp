@@ -125,19 +125,26 @@ bool message_ex::is_client_request()
     if (!header->context.u.is_request)
         return false;
 
-    task_spec *spec = task_spec::get(rpc_code());
+    task_code code = rpc_code();
+    task_spec *spec = task_spec::get(code);
 
-    // TODO(wss): how about TASK_CODE_INVALID
-    if (spec->rpc_request_from_client) {
-        //    std::string rc = rpc_code().to_string();
-        //    if (rc == "TASK_CODE_INVALID" || rc == "RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX" ||
-        //        rc == "RPC_RRDB_RRDB_PUT" || rc == "RPC_RRDB_RRDB_MULTI_PUT" ||
-        //        rc == "RPC_RRDB_RRDB_REMOVE" || rc == "RPC_RRDB_RRDB_MULTI_REMOVE" ||
-        //        rc == "RPC_RRDB_RRDB_INCR" || rc == "RPC_RRDB_RRDB_CHECK_AND_SET" ||
-        //        rc == "RPC_RRDB_RRDB_CHECK_AND_MUTATE" || rc == "RPC_RRDB_RRDB_GET" ||
-        //        rc == "RPC_RRDB_RRDB_MULTI_GET" || rc == "RPC_RRDB_RRDB_SORTKEY_COUNT" ||
-        //        rc == "RPC_RRDB_RRDB_TTL" || rc == "RPC_RRDB_RRDB_GET_SCANNER" ||
-        //        rc == "RPC_RRDB_RRDB_SCAN" || rc == "RPC_RRDB_RRDB_CLEAR_SCANNER") {
+    if (code == TASK_CODE_INVALID || spec->rpc_request_from_client) {
+        // TASK_CODE_INVALID
+        // RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX
+        // RPC_RRDB_RRDB_PUT
+        // RPC_RRDB_RRDB_MULTI_PUT
+        // RPC_RRDB_RRDB_REMOVE
+        // RPC_RRDB_RRDB_MULTI_REMOVE
+        // RPC_RRDB_RRDB_INCR
+        // RPC_RRDB_RRDB_CHECK_AND_SET
+        // RPC_RRDB_RRDB_CHECK_AND_MUTATE
+        // RPC_RRDB_RRDB_GET
+        // RPC_RRDB_RRDB_MULTI_GET
+        // RPC_RRDB_RRDB_SORTKEY_COUNT
+        // RPC_RRDB_RRDB_TTL
+        // RPC_RRDB_RRDB_GET_SCANNER
+        // RPC_RRDB_RRDB_SCAN
+        // RPC_RRDB_RRDB_CLEAR_SCANNER
         ddebug("wss: rpc name = %s, rpc code = %s, client request",
                header->rpc_name,
                spec->name.c_str());
