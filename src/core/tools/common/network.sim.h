@@ -54,8 +54,6 @@ public:
 
     virtual void do_read(int sz) override {}
 
-    virtual void do_limit_read(int sz) override {}
-
     virtual void close() override {}
 };
 
@@ -72,8 +70,6 @@ public:
     virtual void connect() {}
 
     virtual void do_read(int sz) override {}
-
-    virtual void do_limit_read(int sz) override {}
 
     virtual void close() override {}
 

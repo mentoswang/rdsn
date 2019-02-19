@@ -136,61 +136,6 @@ void asio_rpc_session::do_read(int read_next)
         });
 }
 
-void asio_rpc_session::do_limit_read(int read_next)
-{
-    add_ref();
-
-    void *ptr = _reader.read_buffer_ptr(read_next);
-    int remaining = _reader.read_buffer_capacity();
-
-    _socket->async_read_some(
-        boost::asio::buffer(ptr, remaining),
-        [this](boost::system::error_code ec, std::size_t length) {
-            if (!!ec) {
-                if (ec == boost::asio::error::make_error_code(boost::asio::error::eof)) {
-                    ddebug("asio read from %s failed: %s",
-                           _remote_addr.to_string(),
-                           ec.message().c_str());
-                } else {
-                    derror("asio read from %s failed: %s",
-                           _remote_addr.to_string(),
-                           ec.message().c_str());
-                }
-                // on_failure();
-                close_on_failure();
-            } else {
-                _reader.mark_read(length);
-
-                int read_next = -1;
-
-                bool closed = false;
-
-                if (!_parser) {
-                    read_next = prepare_parser();
-                }
-
-                if (_parser) {
-                    message_ex *msg = _parser->get_message_on_receive(&_reader, read_next);
-                    while (msg != nullptr && !closed) {
-                        closed = this->on_message_limit_read(msg);
-                        if (!closed)
-                            msg = _parser->get_message_on_receive(&_reader, read_next);
-                    }
-                }
-
-                if (read_next == -1) {
-                    derror("asio read from %s failed", _remote_addr.to_string());
-                    // on_failure();
-                    close_on_failure();
-                } else if (!closed) {
-                    start_read_next(read_next);
-                }
-            }
-
-            release_ref();
-        });
-}
-
 void asio_rpc_session::write(uint64_t signature)
 {
     std::vector<boost::asio::const_buffer> buffers2;
@@ -232,58 +177,6 @@ void asio_rpc_session::on_failure(bool is_write)
     if (on_disconnected(is_write)) {
         safe_close();
     }
-}
-
-void asio_rpc_session::close_on_failure()
-{
-    // only called by do_limit_read from server
-    rpc_session_ptr sp = this;
-    _net.on_server_session_disconnected(sp);
-    safe_close();
-    dwarn("wss: close connection from %s to %s",
-          _net.address().to_string(),
-          remote_address().to_string());
-}
-
-bool asio_rpc_session::on_message_limit_read(message_ex *msg)
-{
-    // TODO(wss): option 2, check server white list, get wl from configuration when network start
-    // if(!_net.from_wl_server(this->remote_address())) {
-
-    if (is_client_request(msg)) {
-        dwarn("wss: reject %s request from %s to %s",
-              msg->rpc_code().to_string(),
-              _net.address().to_string(),
-              msg->to_address.to_string());
-        reject_message(msg);
-        rpc_session_ptr sp = this;
-        _net.on_server_session_disconnected(sp);
-        safe_close();
-        return true;
-    }
-
-    if (!on_recv_message(msg, 0)) {
-        on_failure(false);
-    }
-    return false;
-}
-
-bool asio_rpc_session::is_client_request(message_ex *msg) { return msg->is_client_request(); }
-
-void asio_rpc_session::reject_message(message_ex *msg)
-{
-    if (msg->header->from_address.is_invalid())
-        msg->header->from_address = _remote_addr;
-    msg->to_address = _net.address();
-    msg->io_session = this;
-
-    auto response = msg->create_response();
-    strncpy(response->header->server.error_name,
-            ERR_CONNECTION_THRESHOLD.to_string(),
-            sizeof(response->header->server.error_name));
-    response->header->server.error_code.local_code = ERR_CONNECTION_THRESHOLD;
-    response->header->server.error_code.local_hash = message_ex::s_local_hash;
-    send_message(response);
 }
 
 void asio_rpc_session::safe_close()

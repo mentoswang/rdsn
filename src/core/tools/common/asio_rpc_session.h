@@ -61,10 +61,8 @@ public:
 
 private:
     virtual void do_read(int read_next) override;
-    virtual void do_limit_read(int read_next) override;
     void write(uint64_t signature);
     void on_failure(bool is_write = false);
-    void close_on_failure();
     void set_options();
     void on_message_read(message_ex *msg)
     {
@@ -72,9 +70,6 @@ private:
             on_failure(false);
         }
     }
-    bool on_message_limit_read(message_ex *msg);
-    bool is_client_request(message_ex *msg);
-    void reject_message(message_ex *msg);
     void safe_close();
 
 private:

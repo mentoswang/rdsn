@@ -156,7 +156,6 @@ public:
     //
     DSN_API error_code error();
     DSN_API task_code rpc_code();
-    bool is_client_request();
     static uint64_t new_id() { return ++_id; }
     static unsigned int get_body_length(char *hdr) { return ((message_header *)hdr)->body_length; }
 

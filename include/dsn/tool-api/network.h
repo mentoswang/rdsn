@@ -159,14 +159,6 @@ private:
 class connection_oriented_network : public network
 {
 public:
-    typedef enum connect_threshold_type {
-        CONNETCION_THRESHOLD_NONE,
-        CONNECTION_THRESHOLD_TOTAL,
-        CONNECTION_THRESHOLD_ENDPOINT,
-        CONNECTION_THRESHOLD_INVALID
-    } connect_threshold_type;
-
-public:
     DSN_API connection_oriented_network(rpc_engine *srv, network *inner_provider);
     virtual ~connection_oriented_network() {}
 
@@ -176,7 +168,7 @@ public:
     DSN_API void on_server_session_disconnected(rpc_session_ptr &s);
 
     // server connection count threshold
-    DSN_API connect_threshold_type limit_connection(::dsn::rpc_address ep);
+    DSN_API bool connection_threshold(::dsn::rpc_address ep);
 
     // client session management
     DSN_API rpc_session_ptr get_client_session(::dsn::rpc_address ep);
@@ -203,7 +195,6 @@ protected:
     endpoint_sessions _endpoints; // from_ip => connection count
     utils::rw_lock_nr _servers_lock;
 
-    uint32_t _connection_threshold_total;
     uint32_t _connection_threshold_endpoint;
 };
 
@@ -249,7 +240,6 @@ public:
     /// for subclass to implement receiving message
     ///
     void start_read_next(int read_next = 256);
-    void start_limit_read_next(int read_next = 256);
     // should be called in do_read() before using _parser when it is nullptr.
     // returns:
     //   -1 : prepare failed, maybe because of invalid message header type
@@ -257,7 +247,6 @@ public:
     //   >0 : need read more data, returns read_next.
     int prepare_parser();
     virtual void do_read(int read_next) = 0;
-    virtual void do_limit_read(int read_next) = 0;
 
     ///
     /// for subclass to implement sending message

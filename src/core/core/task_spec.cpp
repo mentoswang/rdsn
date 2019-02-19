@@ -48,8 +48,7 @@ static std::array<std::unique_ptr<task_spec>, TASK_SPEC_STORE_CAPACITY> s_task_s
 void task_spec::register_task_code(task_code code,
                                    dsn_task_type_t type,
                                    dsn_task_priority_t pri,
-                                   dsn::threadpool_code pool,
-                                   bool is_client_request)
+                                   dsn::threadpool_code pool)
 {
     dassert(code < TASK_SPEC_STORE_CAPACITY, "code = %d", code);
     if (!s_task_spec_store[code]) {
@@ -65,7 +64,6 @@ void task_spec::register_task_code(task_code code,
             dsn::task_code ack_code(
                 ack_name.c_str(), TASK_TYPE_RPC_RESPONSE, pri, THREAD_POOL_INVALID);
             spec->rpc_paired_code = ack_code;
-            spec->rpc_request_from_client = is_client_request;
             task_spec::get(ack_code.code())->rpc_paired_code = code;
         }
     } else {
@@ -97,8 +95,6 @@ void task_spec::register_task_code(task_code code,
             }
             spec->pool_code = pool;
         }
-
-        spec->rpc_request_from_client = is_client_request;
     }
 }
 
@@ -108,16 +104,14 @@ void task_spec::register_storage_task_code(task_code code,
                                            threadpool_code pool,
                                            bool is_write_operation,
                                            bool allow_batch,
-                                           bool is_idempotent,
-                                           bool is_client_request)
+                                           bool is_idempotent)
 {
-    register_task_code(code, type, pri, pool, is_client_request);
+    register_task_code(code, type, pri, pool);
     task_spec *spec = task_spec::get(code);
     spec->rpc_request_for_storage = true;
     spec->rpc_request_is_write_operation = is_write_operation;
     spec->rpc_request_is_write_allow_batch = allow_batch;
     spec->rpc_request_is_write_idempotent = is_idempotent;
-    spec->rpc_request_from_client = is_client_request;
 }
 
 task_spec *task_spec::get(int code)
@@ -138,7 +132,6 @@ task_spec::task_spec(int code,
       rpc_request_is_write_operation(false),
       rpc_request_is_write_allow_batch(false),
       rpc_request_is_write_idempotent(false),
-      rpc_request_from_client(false),
       priority(pri),
       pool_code(pool),
       rpc_call_header_format(NET_HDR_DSN),

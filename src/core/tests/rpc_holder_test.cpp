@@ -35,9 +35,9 @@ using namespace dsn;
 typedef rpc_holder<configuration_query_by_index_request, configuration_query_by_index_response>
     t_rpc;
 
-DEFINE_CLIENT_TASK_CODE_RPC(RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX,
-                            TASK_PRIORITY_COMMON,
-                            THREAD_POOL_DEFAULT)
+DEFINE_TASK_CODE_RPC(RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX,
+                     TASK_PRIORITY_COMMON,
+                     THREAD_POOL_DEFAULT)
 
 TEST(rpc_holder, type_traits)
 {

@@ -37,11 +37,10 @@ task_code::task_code(const char *name) : _internal_code(task_code_mgr::instance(
 task_code::task_code(const char *name,
                      dsn_task_type_t tt,
                      dsn_task_priority_t pri,
-                     dsn::threadpool_code pool,
-                     bool is_client_request)
+                     dsn::threadpool_code pool)
     : task_code(name)
 {
-    task_spec::register_task_code(*this, tt, pri, pool, is_client_request);
+    task_spec::register_task_code(*this, tt, pri, pool);
 }
 
 task_code::task_code(const char *name,
@@ -50,12 +49,11 @@ task_code::task_code(const char *name,
                      dsn::threadpool_code pool,
                      bool is_storage_write,
                      bool allow_batch,
-                     bool is_idempotent,
-                     bool is_client_request)
+                     bool is_idempotent)
     : task_code(name)
 {
     task_spec::register_storage_task_code(
-        *this, tt, pri, pool, is_storage_write, allow_batch, is_idempotent, is_client_request);
+        *this, tt, pri, pool, is_storage_write, allow_batch, is_idempotent);
 }
 
 const char *task_code::to_string() const

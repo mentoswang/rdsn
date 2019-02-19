@@ -120,43 +120,6 @@ task_code message_ex::rpc_code()
     return local_rpc_code;
 }
 
-bool message_ex::is_client_request()
-{
-    if (!header->context.u.is_request)
-        return false;
-
-    task_code code = rpc_code();
-    task_spec *spec = task_spec::get(code);
-
-    if (code == TASK_CODE_INVALID || spec->rpc_request_from_client) {
-        // TASK_CODE_INVALID
-        // RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX
-        // RPC_RRDB_RRDB_PUT
-        // RPC_RRDB_RRDB_MULTI_PUT
-        // RPC_RRDB_RRDB_REMOVE
-        // RPC_RRDB_RRDB_MULTI_REMOVE
-        // RPC_RRDB_RRDB_INCR
-        // RPC_RRDB_RRDB_CHECK_AND_SET
-        // RPC_RRDB_RRDB_CHECK_AND_MUTATE
-        // RPC_RRDB_RRDB_GET
-        // RPC_RRDB_RRDB_MULTI_GET
-        // RPC_RRDB_RRDB_SORTKEY_COUNT
-        // RPC_RRDB_RRDB_TTL
-        // RPC_RRDB_RRDB_GET_SCANNER
-        // RPC_RRDB_RRDB_SCAN
-        // RPC_RRDB_RRDB_CLEAR_SCANNER
-        ddebug("wss: rpc name = %s, rpc code = %s, client request",
-               header->rpc_name,
-               spec->name.c_str());
-        return true;
-    } else {
-        ddebug("wss: rpc name = %s, rpc code = %s, non-client request",
-               header->rpc_name,
-               spec->name.c_str());
-        return false;
-    }
-}
-
 message_ex *message_ex::create_receive_message(const blob &data)
 {
     message_ex *msg = new message_ex();

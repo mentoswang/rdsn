@@ -146,8 +146,7 @@ public:
     DSN_API static void register_task_code(dsn::task_code code,
                                            dsn_task_type_t type,
                                            dsn_task_priority_t pri,
-                                           dsn::threadpool_code pool,
-                                           bool is_client_request);
+                                           dsn::threadpool_code pool);
 
     DSN_API static void register_storage_task_code(dsn::task_code code,
                                                    dsn_task_type_t type,
@@ -155,8 +154,7 @@ public:
                                                    dsn::threadpool_code pool,
                                                    bool is_write_operation,
                                                    bool allow_batch,
-                                                   bool is_idempotent,
-                                                   bool is_client_request);
+                                                   bool is_idempotent);
 
 public:
     // not configurable [
@@ -170,7 +168,6 @@ public:
     bool rpc_request_is_write_operation;   // need stateful replication
     bool rpc_request_is_write_allow_batch; // if write allow batch
     bool rpc_request_is_write_idempotent;  // if write operation is idempotent
-    bool rpc_request_from_client;
     // ]
 
     // configurable [

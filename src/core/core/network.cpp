@@ -217,25 +217,6 @@ void rpc_session::start_read_next(int read_next)
     }
 }
 
-void rpc_session::start_limit_read_next(int read_next)
-{
-    // server only
-    dassert(!is_client(), "wss: should only be server to limit read");
-
-    int delay_ms = _delay_server_receive_ms.exchange(0);
-    // delayed read
-    if (delay_ms > 0) {
-        this->add_ref();
-        dsn::task_ptr delay_task(new raw_task(LPC_DELAY_RPC_REQUEST_RATE, [this]() {
-            start_limit_read_next();
-            this->release_ref();
-        }));
-        delay_task->enqueue(std::chrono::milliseconds(delay_ms));
-    } else {
-        do_limit_read(read_next);
-    }
-}
-
 int rpc_session::prepare_parser()
 {
     if (_reader._buffer_occupied < sizeof(uint32_t))
@@ -521,7 +502,6 @@ uint32_t network::get_local_ipv4()
 connection_oriented_network::connection_oriented_network(rpc_engine *srv, network *inner_provider)
     : network(srv, inner_provider)
 {
-    _connection_threshold_total = 0;
     _connection_threshold_endpoint = 0;
 }
 
@@ -661,19 +641,30 @@ void connection_oriented_network::on_server_session_disconnected(rpc_session_ptr
     }
 }
 
-connection_oriented_network::connect_threshold_type
-connection_oriented_network::limit_connection(::dsn::rpc_address ep)
+bool connection_oriented_network::connection_threshold(::dsn::rpc_address ep)
 {
-    utils::auto_read_lock l(_servers_lock);
+    bool threshold = false;
+    int scount = 0;
+    {
+        utils::auto_read_lock l(_servers_lock);
 
-    if (_servers.size() >= _connection_threshold_total)
-        return connect_threshold_type::CONNECTION_THRESHOLD_TOTAL;
+        auto it = _endpoints.find(ep.ip());
+        if (it != _endpoints.end()) {
+            scount = it->second;
+            if (scount >= _connection_threshold_endpoint)
+                threshold = true;
+        } else
+            scount = 0;
+    }
 
-    auto it = _endpoints.find(ep.ip());
-    if (it != _endpoints.end() && it->second >= _connection_threshold_endpoint)
-        return connect_threshold_type::CONNECTION_THRESHOLD_ENDPOINT;
+    ddebug("wss: client from endpoint %s is connecting to server %s, existing connection count = "
+           "%d, threshold = %d",
+           ep.ipv4_str(),
+           address().to_string(),
+           scount,
+           _connection_threshold_endpoint);
 
-    return connect_threshold_type::CONNETCION_THRESHOLD_NONE;
+    return threshold;
 }
 
 rpc_session_ptr connection_oriented_network::get_client_session(::dsn::rpc_address ep)

@@ -220,9 +220,9 @@ void partition_resolver_simple::call(request_context_ptr &&request, bool from_me
 }
 
 /*send rpc*/
-DEFINE_CLIENT_TASK_CODE_RPC(RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX,
-                            TASK_PRIORITY_COMMON,
-                            THREAD_POOL_DEFAULT)
+DEFINE_TASK_CODE_RPC(RPC_CM_QUERY_PARTITION_CONFIG_BY_INDEX,
+                     TASK_PRIORITY_COMMON,
+                     THREAD_POOL_DEFAULT)
 
 task_ptr partition_resolver_simple::query_config(int partition_index)
 {
@@ -321,14 +321,6 @@ void partition_resolver_simple::query_config_reply(error_code err,
 
             client_err = resp.err;
         }
-    } else if (err == ERR_CONNECTION_THRESHOLD) {
-        derror("wss: %s.client: query config reply, gpid = %d.%d, err = %s",
-               _app_name.c_str(),
-               _app_id,
-               partition_index,
-               err.to_string());
-
-        client_err = err;
     } else {
         derror("%s.client: query config reply, gpid = %d.%d, err = %s",
                _app_name.c_str(),
@@ -400,7 +392,7 @@ void partition_resolver_simple::handle_pending_requests(std::deque<request_conte
                 call(std::move(req), true);
             }
         } else if (err == ERR_HANDLER_NOT_FOUND || err == ERR_APP_NOT_EXIST ||
-                   err == ERR_OPERATION_DISABLED || err == ERR_CONNECTION_THRESHOLD) {
+                   err == ERR_OPERATION_DISABLED) {
             end_request(std::move(req), err, rpc_address());
         } else {
             call(std::move(req), true);
